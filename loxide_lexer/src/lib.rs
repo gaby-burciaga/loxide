@@ -58,9 +58,9 @@ impl<'src> Cursor<'src> {
                 '(' => TokenKind::OpenParen,
                 ')' => TokenKind::CloseParen,
                 '{' => TokenKind::OpenBrace,
-                '}' => TokenKind::OpenBrace,
+                '}' => TokenKind::CloseBrace,
                 '[' => TokenKind::OpenBracket,
-                ']' => TokenKind::OpenBracket,
+                ']' => TokenKind::CloseBracket,
 
                 '|' => TokenKind::Or,
                 '&' => TokenKind::And,
