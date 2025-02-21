@@ -1,0 +1,10 @@
+[package]
+name = "loxide_parse"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+indexmap = "2.7.1"
+loxide_ast = { path = "../loxide_ast" }
+loxide_lexer = { path = "../loxide_lexer" }
+loxide_span = { path = "../loxide_span" }

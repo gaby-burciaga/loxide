@@ -1,8 +1,8 @@
 use std::str::Chars;
 
-use token::{LiteralKind, Token, TokenKind};
-
 pub mod token;
+
+pub use token::*;
 
 pub fn lex(src: &str) -> impl Iterator<Item = Token> + '_ {
     let mut cursor = Cursor::new(src);
