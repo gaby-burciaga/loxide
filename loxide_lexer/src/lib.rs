@@ -62,6 +62,11 @@ impl<'src> Cursor<'src> {
                 '[' => TokenKind::OpenBracket,
                 ']' => TokenKind::CloseBracket,
 
+                '=' => TokenKind::Eq,
+                '!' => TokenKind::Bang,
+                '<' => TokenKind::Lt,
+                '>' => TokenKind::Gt,
+
                 '|' => TokenKind::Or,
                 '&' => TokenKind::And,
 

@@ -139,15 +139,15 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
 
                 loxide_lexer::TokenKind::Or => TokenKind::BinOp(BinOpToken::Or),
                 loxide_lexer::TokenKind::And => TokenKind::BinOp(BinOpToken::And),
-                loxide_lexer::TokenKind::Minus => TokenKind::BinOp(BinOpToken::Slash),
-                loxide_lexer::TokenKind::Star => TokenKind::BinOp(BinOpToken::Slash),
+                loxide_lexer::TokenKind::Plus => TokenKind::BinOp(BinOpToken::Plus),
+                loxide_lexer::TokenKind::Minus => TokenKind::BinOp(BinOpToken::Minus),
+                loxide_lexer::TokenKind::Star => TokenKind::BinOp(BinOpToken::Star),
                 loxide_lexer::TokenKind::Slash => TokenKind::BinOp(BinOpToken::Slash),
                 loxide_lexer::TokenKind::Percent => TokenKind::BinOp(BinOpToken::Percent),
 
                 loxide_lexer::TokenKind::Unknown => todo!("Unknown character"),
 
                 loxide_lexer::TokenKind::Eof => TokenKind::Eof,
-                loxide_lexer::TokenKind::Plus => todo!(),
             };
 
             return (

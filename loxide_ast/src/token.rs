@@ -1,4 +1,6 @@
-use loxide_span::{symbol::Symbol, Span, DUMMY_SP};
+use core::fmt;
+
+use loxide_span::{DUMMY_SP, Span, symbol::Symbol};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Token {
@@ -85,6 +87,31 @@ pub enum TokenKind {
 pub struct Lit {
     pub kind: LitKind,
     pub symbol: Symbol,
+}
+
+impl Lit {
+    pub fn new(kind: LitKind, symbol: Symbol) -> Self {
+        Self { kind, symbol }
+    }
+
+    pub fn from_token(token: &Token) -> Option<Lit> {
+        match token.kind {
+            TokenKind::Ident(name) if name.is_bool_lit() => Some(Lit::new(LitKind::Bool, name)),
+            TokenKind::Literal(lit) => Some(lit),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for Lit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Lit { kind, symbol } = *self;
+        match kind {
+            LitKind::Char => write!(f, "'{symbol}'"),
+            LitKind::String => write!(f, "\"{symbol}\""),
+            _ => write!(f, "{symbol}"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

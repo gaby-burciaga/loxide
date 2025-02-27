@@ -27,6 +27,13 @@ impl Symbol {
     pub fn as_u32(&self) -> u32 {
         self.0
     }
+
+    pub fn is_bool_lit(self) -> bool {
+        // TODO: make keyword table
+        // FIXME: for now a simple string equality check
+        let str = self.as_str();
+        str == "true" || str == "false"
+    }
 }
 
 impl fmt::Display for Symbol {
