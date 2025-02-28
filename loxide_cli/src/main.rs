@@ -1,7 +1,10 @@
 use loxide_parse::{ParseSess, Parser, SymbolGallery};
 
 fn main() {
-    let src = r#"(1+3*3)/(5+1)"#;
+    let src = r#"fn main() {
+        let msg = "Hello world";
+        let n = 10;
+    }"#;
 
     let psess = ParseSess {
         symbol_gallery: SymbolGallery::default(),
@@ -9,6 +12,6 @@ fn main() {
 
     let stream = loxide_parse::lexer::lex_token_trees(&psess, src);
     let mut parser = Parser::new(&psess, stream);
-    let expr = parser.parse_expr();
-    println!("{expr:#?}");
+    let block = parser.parse_item();
+    println!("{block:#?}");
 }

@@ -1,16 +1,70 @@
-use loxide_span::Span;
+use loxide_span::{Span, symbol::Symbol};
 use token::{BinOpToken, Lit, Token, TokenKind};
 
 pub mod token;
 pub mod tokenstream;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Item {
     pub kind: ItemKind,
+    pub ident: Ident,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ItemKind {
+    Fn(Box<Fn>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum ItemKind {}
+pub struct Ident {
+    pub symbol: Symbol,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Fn {
+    pub sig: FnSig,
+    pub body: Box<Block>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct FnSig {
+    pub inputs: Vec<Param>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Param {
+    pub ident: Ident,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Block {
+    pub stmts: Vec<Stmt>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Stmt {
+    pub kind: StmtKind,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum StmtKind {
+    Let(Box<Local>),
+    Expr(Box<Expr>),
+    While,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Local {
+    pub ident: Ident,
+    pub init: Box<Expr>,
+    pub span: Span,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Expr {
@@ -83,4 +137,14 @@ impl BinOpKind {
 pub enum UnOp {
     Not,
     Neg,
+}
+
+impl UnOp {
+    pub fn from_token(token: &Token) -> Option<Self> {
+        match token.kind {
+            TokenKind::Not => Some(UnOp::Not),
+            TokenKind::BinOp(BinOpToken::Minus) => Some(UnOp::Neg),
+            _ => None,
+        }
+    }
 }

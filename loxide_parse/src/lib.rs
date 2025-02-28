@@ -4,7 +4,8 @@ use std::cell::RefCell;
 
 use indexmap::IndexMap;
 use loxide_ast::{
-    BinOp, BinOpKind, Expr, ExprKind, UnOp,
+    BinOp, BinOpKind, Block, Expr, ExprKind, Fn, FnSig, Ident, Item, ItemKind, Local, Param, Stmt,
+    StmtKind, UnOp,
     token::{BinOpToken, Delimiter, Lit, Token, TokenKind},
     tokenstream::{TokenStream, TokenTree},
 };
@@ -34,6 +35,187 @@ impl<'a> Parser<'a> {
         parser.bump();
 
         parser
+    }
+
+    pub fn parse_item(&mut self) -> Item {
+        match self.token.kind {
+            TokenKind::Ident(symbol) => {
+                let lo = self.token.span;
+
+                self.bump();
+
+                let keyword = symbol.as_str();
+
+                let (ident, kind) = match keyword {
+                    "fn" => {
+                        let (ident, f) = self.parse_fn();
+                        (ident, ItemKind::Fn(f))
+                    }
+                    "struct" => todo!(),
+                    _ => todo!(),
+                };
+
+                let span = lo.to(self.prev_token.span);
+
+                self.mk_item(kind, ident, span)
+            }
+            _ => panic!("Expected item"),
+        }
+    }
+
+    fn parse_fn(&mut self) -> (Ident, Box<Fn>) {
+        match self.token.kind {
+            TokenKind::Ident(_) => {
+                let ident = self.parse_ident();
+
+                let sig = self.parse_fn_sig();
+                let body = self.parse_block();
+
+                (ident, Box::new(Fn { sig, body }))
+            }
+            _ => panic!("Expeted ident"),
+        }
+    }
+
+    fn parse_fn_sig(&mut self) -> FnSig {
+        match self.token.kind {
+            TokenKind::OpenDelim(Delimiter::Paren) => {
+                let lo = self.token.span;
+
+                self.bump();
+
+                let mut params = Vec::new();
+
+                while !self.is_token_ahead(
+                    0,
+                    &[TokenKind::CloseDelim(Delimiter::Paren), TokenKind::Eof],
+                ) {
+                    let ident = self.parse_ident();
+
+                    if self.token.kind != TokenKind::Semicolon {
+                        panic!("Expected ','")
+                    }
+
+                    self.bump();
+
+                    let param = Param {
+                        ident,
+                        span: ident.span,
+                    };
+
+                    params.push(param);
+                }
+
+                if self.token.kind == TokenKind::Eof {
+                    panic!("Expected ')'")
+                }
+
+                let span = lo.to(self.token.span);
+
+                self.bump();
+
+                FnSig {
+                    inputs: params,
+                    span,
+                }
+            }
+            _ => panic!("Expected '('"),
+        }
+    }
+
+    fn parse_ident(&mut self) -> Ident {
+        match self.token.kind {
+            TokenKind::Ident(symbol) => {
+                let span = self.token.span;
+                self.bump();
+                Ident { symbol, span }
+            }
+            _ => panic!("Expected ident"),
+        }
+    }
+
+    fn parse_block(&mut self) -> Box<Block> {
+        match self.token.kind {
+            TokenKind::OpenDelim(Delimiter::Brace) => {
+                let lo = self.token.span;
+
+                self.bump();
+
+                let mut stmts = Vec::new();
+
+                while !self.is_token_ahead(
+                    0,
+                    &[TokenKind::CloseDelim(Delimiter::Brace), TokenKind::Eof],
+                ) {
+                    let stmt = self.parse_stmt();
+                    stmts.push(stmt);
+                }
+
+                if self.token.kind == TokenKind::Eof {
+                    panic!("Expected '}}'");
+                }
+
+                let span = lo.to(self.token.span);
+
+                self.bump();
+
+                Box::new(Block { stmts, span })
+            }
+            _ => panic!("Expected '{{'"),
+        }
+    }
+
+    fn parse_stmt(&mut self) -> Stmt {
+        match self.token.kind {
+            TokenKind::Ident(symbol) => {
+                let lo = self.token.span;
+                let ident = symbol.as_str();
+
+                let kind = match ident {
+                    "let" => self.parse_let_stmt(),
+                    _ => panic!("Expected stmt"),
+                };
+
+                let span = lo.to(self.prev_token.span);
+
+                Stmt { kind, span }
+            }
+            _ => panic!("Expected stmt"),
+        }
+    }
+
+    fn parse_let_stmt(&mut self) -> StmtKind {
+        let lo = self.token.span;
+
+        self.bump();
+
+        match self.token.kind {
+            TokenKind::Ident(_) => {
+                let ident = self.parse_ident();
+
+                if self.is_token_ahead(0, &[TokenKind::Eq]) {
+                    self.bump();
+
+                    let init = self.parse_expr();
+
+                    if self.is_token_ahead(0, &[TokenKind::Semicolon]) {
+                        let hi = self.token.span;
+                        self.bump();
+
+                        let span = lo.to(hi);
+
+                        let local = Local { ident, init, span };
+
+                        StmtKind::Let(Box::new(local))
+                    } else {
+                        panic!("Expected ';'")
+                    }
+                } else {
+                    panic!("Expected '='")
+                }
+            }
+            _ => panic!("Expected Ident"),
+        }
     }
 
     // FIXME: Remove pub
@@ -98,8 +280,7 @@ impl<'a> Parser<'a> {
     fn parse_unary(&mut self) -> Box<Expr> {
         if self.is_token_ahead(0, &[TokenKind::BinOp(BinOpToken::Minus), TokenKind::Not]) {
             let lo = self.token.span;
-            // FIXME: Op
-            let op = UnOp::Not;
+            let op = UnOp::from_token(&self.token).expect("Token should be UnOp");
             self.bump();
 
             let right = self.parse_unary();
@@ -147,6 +328,10 @@ impl<'a> Parser<'a> {
             self.bump();
             (lit, span)
         })
+    }
+
+    fn mk_item(&self, kind: ItemKind, ident: Ident, span: Span) -> Item {
+        Item { kind, ident, span }
     }
 
     fn mk_expr(&self, kind: ExprKind, span: Span) -> Box<Expr> {
