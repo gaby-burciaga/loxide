@@ -4,8 +4,8 @@ use std::cell::RefCell;
 
 use indexmap::IndexMap;
 use loxide_ast::{
-    BinOp, BinOpKind, Block, Expr, ExprKind, Fn, FnSig, Ident, Item, ItemKind, Local, Param, Stmt,
-    StmtKind, UnOp,
+    BinOp, BinOpKind, Block, Expr, ExprKind, Field, Fn, FnSig, Ident, Item, ItemKind, Local, Param,
+    Stmt, StmtKind, Struct, UnOp,
     token::{BinOpToken, Delimiter, Lit, Token, TokenKind},
     tokenstream::{TokenStream, TokenTree},
 };
@@ -37,7 +37,18 @@ impl<'a> Parser<'a> {
         parser
     }
 
-    pub fn parse_item(&mut self) -> Item {
+    pub fn parse(&mut self) -> Vec<Item> {
+        let mut items = Vec::new();
+
+        while self.token.kind != TokenKind::Eof {
+            let item = self.parse_item();
+            items.push(item);
+        }
+
+        items
+    }
+
+    fn parse_item(&mut self) -> Item {
         match self.token.kind {
             TokenKind::Ident(symbol) => {
                 let lo = self.token.span;
@@ -51,7 +62,10 @@ impl<'a> Parser<'a> {
                         let (ident, f) = self.parse_fn();
                         (ident, ItemKind::Fn(f))
                     }
-                    "struct" => todo!(),
+                    "struct" => {
+                        let (ident, s) = self.parse_struct();
+                        (ident, ItemKind::Struct(s))
+                    }
                     _ => todo!(),
                 };
 
@@ -63,18 +77,65 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_fn(&mut self) -> (Ident, Box<Fn>) {
+    fn parse_struct(&mut self) -> (Ident, Box<Struct>) {
+        let ident = self.parse_ident();
+
         match self.token.kind {
-            TokenKind::Ident(_) => {
-                let ident = self.parse_ident();
+            TokenKind::OpenDelim(Delimiter::Brace) => {
+                let lo = self.token.span;
 
-                let sig = self.parse_fn_sig();
-                let body = self.parse_block();
+                self.bump();
 
-                (ident, Box::new(Fn { sig, body }))
+                let mut fields = Vec::new();
+
+                while !self.is_token_ahead(
+                    0,
+                    &[TokenKind::CloseDelim(Delimiter::Brace), TokenKind::Eof],
+                ) {
+                    let ident = self.parse_ident();
+
+                    if self.token.kind != TokenKind::Comma {
+                        panic!("Expected ','")
+                    }
+
+                    self.bump();
+
+                    let field = Field {
+                        ident,
+                        span: ident.span,
+                    };
+
+                    fields.push(field);
+                }
+
+                if self.token.kind == TokenKind::Eof {
+                    panic!("Expected '}}'")
+                }
+
+                let span = lo.to(self.token.span);
+
+                self.bump();
+
+                (
+                    ident,
+                    Box::new(Struct {
+                        ident,
+                        fields,
+                        span,
+                    }),
+                )
             }
-            _ => panic!("Expeted ident"),
+            _ => panic!("Expected '{{'"),
         }
+    }
+
+    fn parse_fn(&mut self) -> (Ident, Box<Fn>) {
+        let ident = self.parse_ident();
+
+        let sig = self.parse_fn_sig();
+        let body = self.parse_block();
+
+        (ident, Box::new(Fn { sig, body }))
     }
 
     fn parse_fn_sig(&mut self) -> FnSig {
@@ -218,8 +279,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    // FIXME: Remove pub
-    pub fn parse_expr(&mut self) -> Box<Expr> {
+    fn parse_expr(&mut self) -> Box<Expr> {
         self.parse_equality()
     }
 
