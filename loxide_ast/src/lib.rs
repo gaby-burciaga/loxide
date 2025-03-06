@@ -91,6 +91,8 @@ pub enum ExprKind {
     Unary(UnOp, Box<Expr>),
     Binary(BinOp, Box<Expr>, Box<Expr>),
     Lit(Lit),
+    Call(Box<Expr>, Vec<Box<Expr>>),
+    Ident(Ident),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

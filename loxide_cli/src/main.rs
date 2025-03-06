@@ -1,11 +1,9 @@
 use loxide_parse::{ParseSess, Parser, SymbolGallery};
 
 fn main() {
-    let src = r#"struct Point { x, y, }
-    
-    fn main() {
+    let src = r#"fn main() {
         let msg = "Hello world";
-        let n = 10;
+        println("{}", msg);
     }"#;
 
     let psess = ParseSess {

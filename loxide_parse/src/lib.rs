@@ -234,7 +234,17 @@ impl<'a> Parser<'a> {
 
                 let kind = match ident {
                     "let" => self.parse_let_stmt(),
-                    _ => panic!("Expected stmt"),
+                    _ => {
+                        let expr = StmtKind::Expr(self.parse_expr());
+                        
+                        if !self.is_token_ahead(0, &[TokenKind::Semicolon]) {
+                            panic!("Expected ';'");
+                        }
+
+                        self.bump();
+
+                        expr
+                    },
                 };
 
                 let span = lo.to(self.prev_token.span);
@@ -347,11 +357,63 @@ impl<'a> Parser<'a> {
             let span = lo.to(right.span);
             self.mk_expr(self.mk_unary(op, right), span)
         } else {
-            self.parse_opt_expr_lit()
-                .unwrap_or_else(|| match self.token.kind {
-                    TokenKind::OpenDelim(Delimiter::Paren) => self.parse_expr_in_paren(),
-                    _ => panic!("Expected exper"),
-                })
+            self.parse_call()
+        }
+    }
+
+    fn parse_call(&mut self) -> Box<Expr> {
+        let expr = self.parse_primary();
+        let lo = expr.span;
+
+        match self.token.kind {
+            TokenKind::OpenDelim(Delimiter::Paren) => {
+                self.bump();
+
+                let mut args = Vec::new();
+
+                while !self.is_token_ahead(
+                    0,
+                    &[TokenKind::CloseDelim(Delimiter::Paren), TokenKind::Eof],
+                ) {
+                    let arg = self.parse_expr();
+
+                    args.push(arg);
+
+                    if self.token.kind != TokenKind::Comma {
+                        break;
+                    }
+
+                    self.bump();
+                }
+
+                if self.token.kind == TokenKind::Eof {
+                    panic!("Expected ')'")
+                }
+
+                self.bump();
+
+                let hi = self.prev_token.span;
+
+                let span = lo.to(hi);
+
+                self.mk_expr(ExprKind::Call(expr, args), span)
+            }
+            _ => expr,
+        }
+    }
+
+    fn parse_primary(&mut self) -> Box<Expr> {
+        match self.token.kind {
+            TokenKind::OpenDelim(Delimiter::Paren) => self.parse_expr_in_paren(),
+            _ => self.parse_opt_expr_lit().unwrap_or_else(|| {
+                match self.token.kind {
+                    TokenKind::Ident(_) => {
+                        let ident = self.parse_ident();
+                        self.mk_expr(ExprKind::Ident(ident), ident.span)
+                    }
+                    _ => panic!("Expected expr")
+                }
+            }),
         }
     }
 
@@ -361,6 +423,15 @@ impl<'a> Parser<'a> {
         let (lit, _) = self.parse_opt_token_lit()?;
         let expr = self.mk_expr(ExprKind::Lit(lit), lo.to(self.prev_token.span));
         Some(expr)
+    }
+
+    fn parse_opt_token_lit(&mut self) -> Option<(Lit, Span)> {
+        let span = self.token.span;
+
+        Lit::from_token(&self.token).map(|lit| {
+            self.bump();
+            (lit, span)
+        })
     }
 
     fn parse_expr_in_paren(&mut self) -> Box<Expr> {
@@ -379,15 +450,6 @@ impl<'a> Parser<'a> {
         expr.span = lo.to(hi);
 
         expr
-    }
-
-    fn parse_opt_token_lit(&mut self) -> Option<(Lit, Span)> {
-        let span = self.token.span;
-
-        Lit::from_token(&self.token).map(|lit| {
-            self.bump();
-            (lit, span)
-        })
     }
 
     fn mk_item(&self, kind: ItemKind, ident: Ident, span: Span) -> Item {
